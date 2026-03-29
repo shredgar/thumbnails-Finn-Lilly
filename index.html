@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meet Ayo - V52</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Arial', sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; background-color: #f0f8ff; color: #333; }
+        
+        .robo-green { background-color: #1b5e20 !important; color: white; }
+        .story-text { font-size: 48px; line-height: 1.8; color: #1b5e20; text-align: center; margin: 30px 0; font-weight: bold; }
+        
+        .control-panel { position: fixed; top: 20px; right: 20px; background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 1000; width: 320px; }
+        .control-btn { display: flex; align-items: center; justify-content: center; width: 100%; height: 60px; margin: 5px 0; border: none; border-radius: 10px; cursor: pointer; transition: 0.2s; overflow: hidden; position: relative; }
+        
+        .btn-silent { background-color: #95a5a6; color: white; }
+        .btn-ra { background-color: #e67e22; color: white; font-weight: bold; }
+        .btn-nav { background-color: #3498db; color: white; font-weight: bold; height: 40px; }
+
+        .btn-label { font-size: 16px; line-height: 1.1; font-weight: 900; text-transform: uppercase; margin-right: 10px; margin-left: 4px; pointer-events: none; z-index: 10; }
+        .btn-gif { height: 100%; width: auto; min-width: 80px; object-fit: cover; pointer-events: none; }
+
+        .play-indicator { color: #e74c3c; font-size: 1.8em; display: none; animation: pulse 1s infinite; vertical-align: middle; margin-right: 10px; pointer-events: none; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
+        
+        .episode-title-btn { font-size: 2.4em; color: #e74c3c; font-weight: bold; border: none; background: none; outline: none; cursor: pointer; }
+
+        .word { display: inline-block; margin: 0 4px; padding: 2px 8px; border-radius: 5px; transition: background-color 0.05s; }
+        .highlighted { background-color: #ffeb3b; transform: scale(1.1); }
+
+        .countdown-container { width: 100%; height: 10px; background: #eee; border-radius: 5px; margin-top: 10px; overflow: hidden; display: none; }
+        .countdown-bar { width: 0%; height: 100%; background: #1b5e20; }
+        
+        #raInfo { font-size: 11px; background: #fff3cd; padding: 10px; margin-top: 10px; border-radius: 5px; display: none; border: 1px solid #ffeeba; line-height: 1.4; }
+
+        /* Updated image styling to stretch/fill to a consistent container size */
+        #pageImage { width: 100%; height: 450px; object-fit: fill; border-radius: 8px; margin-bottom: 24px; }
+    </style>
+</head>
+<body id="mainBody">
+
+    <div class="control-panel" aria-hidden="true">
+        <div class="flex gap-1">
+            <button class="control-btn robo-green w-1/2" id="voiceToggle">
+                <div id="onState" class="flex items-center justify-center w-full h-full">
+                    <span class="btn-label">VOICE<br>ON</span>
+                    <img src="https://raw.githubusercontent.com/shredgar/thumbnails-Finn-Lilly/main/pageflip_mouth_1232.gif" class="btn-gif">
+                </div>
+                <div id="offState" class="flex items-center justify-center w-full h-full" style="display:none">
+                    <span class="btn-label">VOICE<br>OFF</span>
+                    <img src="https://raw.githubusercontent.com/shredgar/thumbnails-Finn-Lilly/main/shush_bubble_final.gif" class="btn-gif">
+                </div>
+            </button>
+            <button class="control-btn btn-ra w-1/2" id="readAloudBtn">ReadAloud</button>
+        </div>
+        
+        <div id="raInfo">
+            <strong>EDGE BROWSER USERS:</strong> Ctrl+Shift+U, to activate Readaloud mode, then press <span style="color:red" aria-hidden="true">▶</span> Play.<br>
+            (Robo is still available via the Green button!)
+        </div>
+
+        <div class="flex gap-1">
+            <button class="control-btn btn-nav w-1/2" id="prevBtn">⏮ Prev</button>
+            <button class="control-btn btn-nav w-1/2" id="nextBtn">⏭ Next</button>
+        </div>
+
+        <div class="px-2 mt-2 border-t pt-2">
+            <label class="text-xs font-bold">Tempo: <span id="speedVal">0.4x</span></label>
+            <input type="range" id="speedSlider" min="0.3" max="2.0" step="0.1" value="0.4" class="w-full h-2 cursor-pointer">
+        </div>
+
+        <div class="countdown-container" id="countdownBox">
+            <div class="countdown-bar" id="countdownBar"></div>
+        </div>
+        
+        <button class="control-btn bg-purple-600 text-white mt-2" id="restartBtn" style="display:none; height: 40px;">🔄 Start Over</button>
+    </div>
+
+    <div class="page-container mt-10">
+        <div class="text-center mb-6">
+            <span class="play-indicator" id="playInd" aria-hidden="true">▶</span>
+            <button class="episode-title-btn" id="pageTitle"></button>
+        </div>
+        <div id="visualContent">
+            <img id="pageImage" aria-hidden="true">
+            <div class="story-text" id="storyText"></div>
+            <div id="pageIndicator" class="text-center font-bold text-gray-400 text-sm" aria-hidden="true"></div>
+        </div>
+    </div>
+
+    <script>
+        const pages = [
+            { title: "Meet Ayo", text: "Meet Ayo", img: "https://cdn.simtheory.ai/image/upload/v1772902320/u0307165059_1Episode3-MeetAyo_s4l5bp.png" },
+            { title: "This is Ayo. Ayo has a dog. The dog is Rex.", text: "This is Ayo. Ayo has a dog. The dog is Rex.", img: "https://cdn.simtheory.ai/image/upload/v1772902321/u0307165059_2.ThisisAyo.Ayohasadog.ThedogisRex.Rexis_grvr6u.png" },
+            { title: "Wilf the pig is not so big", text: "Wilf the pig is not so big.", img: "https://cdn.simtheory.ai/image/upload/v1772902322/u0307165059_3.Wilfthepigisnotsobig_nk2urc.png" },
+            { title: "Rex ran at Wilf", text: "Rex ran at Wilf.", img: "https://cdn.simtheory.ai/image/upload/v1772902323/u0307165059_4.RexranatWilf_fiskru.png" },
+            { title: "Ayo and Rex are in the mud. Wilf is not.", text: "Ayo and Rex are in the mud. Wilf is not.", img: "https://cdn.simtheory.ai/image/upload/v1772902324/u0307165059_5.AyoandRexareinthemud.Wilfisnot_nrsngh.png" },
+            { title: "Rex and Wilf are pals", text: "Rex and Wilf are pals.", img: "https://cdn.simtheory.ai/image/upload/v1772902324/u0307165059_6.RexandWilfarepals_asq5re.png" }
+        ];
+
+        let currentPage = 0, roboActive = true, readAloudMode = false, currentRate = 0.4;
+        let highlightTimer = null, autoTurnTimer = null;
+
+        document.getElementById('mainBody').onclick = function(e) {
+            if (e.target === document.getElementById('mainBody')) stopAll();
+        };
+
+        function renderPage(idx) {
+            stopAll();
+            currentPage = idx;
+            const p = pages[idx];
+            const storyEl = document.getElementById('storyText');
+            
+            document.getElementById('pageTitle').textContent = p.title;
+            document.getElementById('pageImage').src = p.img;
+            storyEl.innerHTML = p.text.split(' ').map((w, i) => `<span class="word" id="word-${i}">${w}</span>`).join(' ');
+            document.getElementById('pageIndicator').textContent = `PAGE ${idx + 1} OF ${pages.length}`;
+            document.getElementById('restartBtn').style.display = (idx === pages.length - 1) ? 'block' : 'none';
+
+            if (readAloudMode) storyEl.setAttribute('aria-hidden', 'true');
+            else storyEl.removeAttribute('aria-hidden');
+
+            setTimeout(() => {
+                if (readAloudMode) startHighlighting(0.4); 
+                else if (roboActive) speakRobo();
+                else startHighlighting(currentRate);
+            }, 1000);
+        }
+
+        function startHighlighting(effectiveRate) {
+            const words = pages[currentPage].text.split(' ');
+            let i = 0;
+            function next() {
+                if (i >= words.length) {
+                    if (!readAloudMode) startProgressBar();
+                    return;
+                }
+                document.querySelectorAll('.word').forEach(w => w.classList.remove('highlighted'));
+                const el = document.getElementById(`word-${i}`);
+                if (el) el.classList.add('highlighted');
+                let baseDelay = (350 / effectiveRate) + (words[i].length * (50 / effectiveRate));
+                if (words[i].includes('.') || words[i].includes(',')) baseDelay *= 2.5; 
+                i++;
+                highlightTimer = setTimeout(next, baseDelay);
+            }
+            next();
+        }
+
+        function speakRobo() {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(pages[currentPage].text);
+            utter.rate = currentRate;
+            utter.onboundary = (e) => {
+                if (e.name === 'word') {
+                    const words = pages[currentPage].text.split(' ');
+                    let charSum = 0; let targetIdx = 0;
+                    for (let j = 0; j < words.length; j++) {
+                        if (e.charIndex >= charSum) targetIdx = j;
+                        charSum += words[j].length + 1;
+                    }
+                    document.querySelectorAll('.word').forEach(w => w.classList.remove('highlighted'));
+                    document.getElementById(`word-${targetIdx}`)?.classList.add('highlighted');
+                }
+            };
+            utter.onend = () => { if (!readAloudMode) startProgressBar(); };
+            window.speechSynthesis.speak(utter);
+        }
+
+        function startProgressBar() {
+            if (readAloudMode) return; 
+            const box = document.getElementById('countdownBox');
+            const bar = document.getElementById('countdownBar');
+            box.style.display = 'block';
+            bar.style.transition = 'none'; bar.style.width = '0%';
+            const duration = roboActive ? 6000 : 3000;
+            setTimeout(() => {
+                bar.style.transition = `width ${duration}ms linear`;
+                bar.style.width = '100%';
+                autoTurnTimer = setTimeout(() => {
+                    if (currentPage < pages.length - 1) renderPage(currentPage + 1);
+                }, duration);
+            }, 50);
+        }
+
+        function stopAll() {
+            window.speechSynthesis.cancel();
+            clearTimeout(highlightTimer);
+            clearTimeout(autoTurnTimer);
+            document.getElementById('countdownBox').style.display = 'none';
+            document.querySelectorAll('.word').forEach(w => w.classList.remove('highlighted'));
+        }
+
+        document.getElementById('voiceToggle').addEventListener('click', () => {
+            roboActive = !roboActive;
+            const btn = document.getElementById('voiceToggle'), onS = document.getElementById('onState'), offS = document.getElementById('offState');
+            stopAll();
+            if (roboActive) {
+                btn.className = "control-btn robo-green w-1/2";
+                onS.style.display = "flex"; offS.style.display = "none";
+                speakRobo();
+            } else {
+                btn.className = "control-btn btn-silent w-1/2";
+                onS.style.display = "none"; offS.style.display = "flex";
+                startHighlighting(currentRate);
+            }
+        });
+
+        document.getElementById('readAloudBtn').onclick = (e) => {
+            readAloudMode = !readAloudMode;
+            document.getElementById('raInfo').style.display = readAloudMode ? 'block' : 'none';
+            document.getElementById('playInd').style.display = readAloudMode ? 'inline-block' : 'none';
+            e.target.style.backgroundColor = readAloudMode ? "#c0392b" : "#e67e22";
+            renderPage(currentPage);
+        };
+
+        document.getElementById('speedSlider').oninput = (e) => {
+            currentRate = parseFloat(e.target.value);
+            document.getElementById('speedVal').textContent = currentRate + 'x';
+            stopAll();
+            if (roboActive) speakRobo(); else startHighlighting(currentRate);
+        };
+
+        document.getElementById('nextBtn').onclick = () => { if (currentPage < pages.length - 1) renderPage(currentPage + 1); };
+        document.getElementById('prevBtn').onclick = () => { if (currentPage > 0) renderPage(currentPage - 1); };
+        document.getElementById('restartBtn').onclick = () => renderPage(0);
+
+        renderPage(0);
+    </script>
+</body>
+</html>
